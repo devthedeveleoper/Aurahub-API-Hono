@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { makeStreamtapeRequest } from './client';
 import type {
@@ -18,6 +19,8 @@ type Env = {
 };
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use('*', cors());
 
 const createSuccessResponse = (result: any) => ({ success: !!result });
 
