@@ -19,7 +19,6 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// --- Helper for boolean-like responses ---
 const createSuccessResponse = (result: any) => ({ success: !!result });
 
 // --- Stream & Download Routes ---
@@ -74,18 +73,18 @@ app.get('/upload/url', async (c) => {
 
 app.get('/remote/add', async (c) => {
   const url = c.req.query('url');
-  if (!url) {
-    throw new HTTPException(400, { message: 'Query parameter "url" is required.' });
-  }
-  const params: Record<string, string> = { url };
-  const folder = c.req.query('folder');
-  const name = c.req.query('name');
+  const folderId = c.req.query('folder');
 
-  if (folder) params.folder = folder;
+  if (!url || !folderId) {
+    throw new HTTPException(400, { message: 'Query parameters "url" and "folder" are required.' });
+  }
+
+  const params: Record<string, string> = { url, folder: folderId };
+  const name = c.req.query('name');
   if (name) params.name = name;
   
   const result = await makeStreamtapeRequest<RemoteUploadAdd>(c, '/remotedl/add', params);
-  return c.json(result, 202); // 202 Accepted
+  return c.json(result, 202);
 });
 
 app.delete('/remote/remove/:upload_id', async (c) => {
@@ -107,20 +106,14 @@ app.get('/remote/status', async (c) => {
   return c.json(result);
 });
 
-
 // --- File & Folder Management Routes ---
 
-// List Folder Contents
-app.get('/fs/list', async (c) => {
-  const params: Record<string, string> = {};
-  const folderId = c.req.query('folder');
-  if (folderId) params.folder = folderId;
-
-  const result = await makeStreamtapeRequest<FolderContent>(c, '/file/listfolder', params);
+app.get('/fs/list/:folder_id', async (c) => {
+  const folderId = c.req.param('folder_id');
+  const result = await makeStreamtapeRequest<FolderContent>(c, '/file/listfolder', { folder: folderId });
   return c.json(result);
 });
 
-// Create Folder
 app.post('/fs/folders/create', async (c) => {
   const name = c.req.query('name');
   if (!name) {
@@ -134,7 +127,6 @@ app.post('/fs/folders/create', async (c) => {
   return c.json(result);
 });
 
-// Rename Folder
 app.patch('/fs/folders/rename/:folder_id', async (c) => {
   const folderId = c.req.param('folder_id');
   const name = c.req.query('name');
@@ -145,14 +137,12 @@ app.patch('/fs/folders/rename/:folder_id', async (c) => {
   return c.json(createSuccessResponse(result));
 });
 
-// Delete Folder
 app.delete('/fs/folders/delete/:folder_id', async (c) => {
   const folderId = c.req.param('folder_id');
   const result = await makeStreamtapeRequest<boolean>(c, '/file/deletefolder', { folder: folderId });
   return c.json(createSuccessResponse(result));
 });
 
-// Rename File
 app.patch('/fs/files/rename/:file_id', async (c) => {
   const fileId = c.req.param('file_id');
   const name = c.req.query('name');
@@ -163,7 +153,6 @@ app.patch('/fs/files/rename/:file_id', async (c) => {
   return c.json(createSuccessResponse(result));
 });
 
-// Move File
 app.patch('/fs/files/move/:file_id', async (c) => {
   const fileId = c.req.param('file_id');
   const folderId = c.req.query('folder');
@@ -174,14 +163,12 @@ app.patch('/fs/files/move/:file_id', async (c) => {
   return c.json(createSuccessResponse(result));
 });
 
-// Delete File
 app.delete('/fs/files/delete/:file_id', async (c) => {
   const fileId = c.req.param('file_id');
   const result = await makeStreamtapeRequest<boolean>(c, '/file/delete', { file: fileId });
   return c.json(createSuccessResponse(result));
 });
 
-// Get File Thumbnail
 app.get('/fs/files/thumbnail/:file_id', async (c) => {
   const fileId = c.req.param('file_id');
   const thumbnailUrl = await makeStreamtapeRequest<string>(c, '/file/getsplash', { file: fileId });
